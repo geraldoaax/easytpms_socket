@@ -1,21 +1,38 @@
+import { Logger } from '@nestjs/common';
 import {
-  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect, OnGatewayInit, SubscribeMessage,
   WebSocketGateway,
-  WebSocketServer,
-  WsResponse
+  WebSocketServer
 } from '@nestjs/websockets';
-import { from, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
-import { Server } from 'ws';
+import { Server, Socket } from 'socket.io';
 
-@WebSocketGateway(5555)
-export class MessageGateway {
-  @WebSocketServer()
+@WebSocketGateway(5555, {
+  cors: {
+    origin: '*',
+  },
+})
+export class MessageGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {  @WebSocketServer()
   server: Server;
 
+  private logger: Logger = new Logger('AppGateway');
+
+
   @SubscribeMessage('message')
-  onEvent(client: any, data: any): Observable<WsResponse<number>> {
-    console.log(data)
-    return from([1, 2, 3]).pipe(map(item => ({ event: 'events', data: item })));
-  }
+  handleMessage(client: Socket, payload: string): void {
+    console.log(payload)
+    this.server.emit('msgToClient', payload);
+}
+
+afterInit(server: Server) {
+  this.logger.log('Init');
+ }
+
+ handleDisconnect(client: Socket) {
+  this.logger.log(`Client disconnected: ${client.id}`);
+ }
+
+ handleConnection(client: Socket, ...args: any[]) {
+  this.logger.log(`Client connected: ${client.id}`);
+ }
 }
